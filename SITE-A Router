@@ -1,0 +1,55 @@
+
+hostname R1
+! Site-A Router - VPN endpoint for LAN 192.168.10.0/24
+! Handles IPsec encryption towards Site-B and OSPF routing
+
+!===============================
+! Crypto Configuration
+!===============================
+crypto isakmp policy 10
+ encr aes 256
+ authentication pre-share
+ group 5
+! IKE Phase 1: AES-256 encryption, pre-shared key, DH group 5
+
+crypto isakmp key cisco123 address 192.0.2.2
+! Pre-shared key for Site-B VPN peer
+
+crypto ipsec transform-set VPN-SET esp-aes esp-sha-hmac
+! IPsec Phase 2: encrypt data with AES, ensure integrity with SHA
+
+crypto map VPN-MAP 10 ipsec-isakmp
+ description VPN FOR SITE-B BRANCH
+ set peer 192.0.2.2
+ set transform-set VPN-SET
+ match address 130
+! Bind VPN to serial interface, match interesting traffic via ACL 130
+
+!===============================
+! Interface Configuration
+!===============================
+interface GigabitEthernet0/0
+ ip address 192.168.10.1 255.255.255.0
+ duplex auto
+ speed auto
+! LAN-facing interface
+
+interface Serial0/3/0
+ ip address 203.0.113.2 255.255.255.252
+ crypto map VPN-MAP
+! WAN-facing interface with applied crypto map
+
+!===============================
+! Routing Configuration
+!===============================
+router ospf 1
+ router-id 1.1.1.1
+ network 192.168.10.0 0.0.0.255 area 0
+ network 203.0.113.0 0.0.0.3 area 0
+! OSPF configured for LAN and WAN subnets
+
+!===============================
+! Access List
+!===============================
+access-list 130 permit ip 192.168.10.0 0.0.0.255 192.168.20.0 0.0.0.255
+! Defines traffic to encrypt (LAN-to-LAN between Site-A and Site-B)
